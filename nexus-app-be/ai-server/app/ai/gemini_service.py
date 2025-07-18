@@ -6,6 +6,7 @@ Minimal version focused on LSP text processing capabilities
 import google.generativeai as genai
 from typing import Optional, Dict, Any, List
 import asyncio
+import os
 
 class GeminiAIService:
     """Minimal Gemini AI service for LSP operations"""
@@ -15,6 +16,14 @@ class GeminiAIService:
         self.max_retries = 3
         self.timeout = 30
         
+        # Configure API key from environment
+        api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+        if api_key:
+            genai.configure(api_key=api_key)
+            print(f"🔑 Gemini API configured with key: {api_key[:10]}...")
+        else:
+            print("⚠️ No Gemini API key found in environment variables")
+        
     def configure_api_key(self, api_key: str):
         """Configure Gemini API key for this session"""
         genai.configure(api_key=api_key)
@@ -23,8 +32,7 @@ class GeminiAIService:
         self,
         text: str,
         context: Optional[str] = None,
-        enhancement_type: str = "enhance",
-        api_key: str = None
+        enhancement_type: str = "enhance"
     ) -> str:
         """
         Generate enhanced text for LSP operations
@@ -33,15 +41,10 @@ class GeminiAIService:
             text: The text to enhance
             context: Optional context for the enhancement
             enhancement_type: Type of enhancement (enhance, expand, clarify, etc.)
-            api_key: Gemini API key
             
         Returns:
             Enhanced text string
         """
-        
-        if api_key:
-            self.configure_api_key(api_key)
-            
         prompt = self._build_enhancement_prompt(text, context, enhancement_type)
         
         try:

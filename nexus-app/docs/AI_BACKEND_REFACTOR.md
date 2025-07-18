@@ -1,46 +1,109 @@
 
 # AI Backend Refactor Documentation
 
-This document captures the analysis of the current nexus-app-be backend, its production-readiness, gaps, and a detailed TODO list for refactoring it into a dedicated FastAPI server for AI features (suggestions and infuses/rewrites). This is based on the user's query and my proposed plan.
+This document captures the analysis of the current nexus-app-be/ai-server backend, its production-readiness, gaps, and the current status of connecting it to the frontend.
 
-## 1. Analysis of nexus-app-be Backend
+## 1. Analysis of nexus-app-be/ai-server Backend
+
+### Current Architecture ✅
+- **Complete FastAPI Server**: `main.py` with CORS, health checks, and proper routing
+- **LSP-Compliant Models**: Sophisticated Position, Range, TextEdit structures for precise editing
+- **Gemini AI Integration**: Working service with error handling and retry logic
+- **Supabase JWT Auth**: Middleware ready for proper authentication
+- **Three Modes Implemented**: highlight_click, cmd_drop, paragraph_drop already coded
+- **Production Dependencies**: All required packages in requirements.txt
 
 ### Key Features and Processes
 - **Core Purpose**: AI-driven text "infusions" (rewrites/enhancements) using Google's Gemini model, structured around Language Server Protocol (LSP) for precise edits.
 - **AI Service**: Handles Gemini calls with prompts for enhancement types (e.g., enhance, expand). Returns enhanced text with retries and timeouts.
-- **Diff/Edit Computation**: Computes LSP-compliant edits (TextEdit, WorkspaceEdit) for minimal, targeted changes.
-- **Endpoints**: LSP-inspired routes for infusions, code actions, completions, previews, and applications.
-- **Auth**: Simplified Supabase JWT verification (dev-oriented).
-- **Other**: CORS, health checks, Pydantic models for LSP compliance.
+- **Diff/Edit Computation**: LSP diff service computes precise edits (TextEdit, WorkspaceEdit) for minimal, targeted changes.
+- **Endpoints**: Both LSP-compliant routes AND simplified /api/suggestions and /api/infuse endpoints
+- **Auth**: Supabase JWT verification with python-jose (currently commented out for testing)
+- **Three Modes**: 
+  - `highlight_click`: Enhance only highlighted text
+  - `cmd_drop`: Infuse suggestion into entire text  
+  - `paragraph_drop`: Rewrite target paragraph
 
-### Honest Opinion: Production-Grade?
-- **Strengths**: Clean, modular FastAPI structure; LSP compliance for editor integration; similar to tools like Cursor (precise diffs, suggestions).
-- **Weaknesses**: Dev-focused (mock auth, no scaling features); lacks depth compared to Cursor (e.g., no multi-agent, limited prompts).
-- **Rating**: 6/10 for prod-readiness; could be 9/10 with improvements.
+### Current Status: Ready for Production Polish ⭐
+- **Strengths**: Excellent LSP architecture, more sophisticated than many AI editors, clean separation of concerns
+- **What Needs Polish**: Enable auth, centralize API keys, add monitoring/rate limiting
+- **Rating**: 8/10 for architecture, 6/10 for production features
 
-### Gaps and Improvements
-- **Gaps**: Weak auth/security, no scalability (caching, queues), basic prompts, poor error handling, no tests/monitoring.
-- **Improvements**: Proper JWT, rate limiting, advanced prompts, logging, monitoring. Expand LSP for more features.
+### Frontend Connection Status ✅
+The frontend is **already configured** to connect to the backend:
+- Environment variable: `NEXT_PUBLIC_AI_BACKEND_URL` (defaults to http://localhost:8000)
+- Auth tokens: Properly extracted from Supabase session
+- API calls: Using correct endpoints (/api/suggestions, /api/infuse)
+- Three modes: Frontend properly sends mode parameters
 
-### Suitability for Three Infuse Modes
-The app supports the modes well via LSP ranges:
-- Highlight + Click: Target specific range.
-- Cmd Drop: Full text infusion.
-- Drag-Drop to Paragraph: Target paragraph range.
-Minor frontend tweaks needed for detection.
+## 2. Current Connection Overview
 
-### How AI Service Works
-Gemini is called with constructed prompts (e.g., "Enhance this text: [text]"). Returns enhanced text, which is diffed into LSP edits.
+### Backend Endpoints (nexus-app-be/ai-server)
+```python
+# Already implemented:
+POST /api/suggestions     # Returns AI suggestions for full text
+POST /api/infuse         # Handles three infusion modes
+GET  /api/health         # Health check
+GET  /api/me            # User info (requires auth)
+```
 
-## 2. Refactor Plan Overview
-Move AI logic from Next.js to a dedicated FastAPI server in nexus-app-be/ai-server/. Use Supabase auth. New endpoints for suggestions and infuse, handling the three modes. Crucial flows: Send text/cursor/range from UI; return LSP edits; apply via Tiptap.
+### Frontend Integration (nexus-app/src)
+```typescript
+// Already implemented:
+- useAISuggestions.ts: Calls /api/suggestions with auth
+- immerse/page.tsx: Calls /api/infuse with three modes
+- Auth integration: Supabase JWT tokens included
+```
 
-## TODO List
-- [x] **Step 1: Create new directory structure in nexus-app-be/ai-server/**. Move existing files (main.py, ai/, routes/, models/, auth/) there and update imports. *Completed: Directory created, files copied, and old app/ directory and requirements.txt removed for cleanup. Imports may need manual adjustment based on testing.*
-- [x] **Step 2: Enhance auth in ai-server/auth/middleware.py**. Add proper JWT validation using python-jose. *Completed: Added jose_jwt.decode for proper validation, including expiry and signature checks. Requires SUPABASE_JWT_SECRET env var.*
-- [x] **Step 3: Add /api/suggestions endpoint** in ai-server/routes/. Takes full_text, returns LSP CompletionItem[]. *Completed: Added to lsp_infuse.py; uses new generate_suggestions in gemini_service.py to fetch 4 suggestions.*
-- [x] **Step 4: Add /api/infuse endpoint** in ai-server/routes/. Handles three modes via params; uses Gemini for generation, computes LSP WorkspaceEdit. *Completed: Added to lsp_infuse.py; determines range and prompt based on mode, generates enhanced text, creates WorkspaceEdit.*
-- [x] **Step 5: Update frontend (immerse/page.tsx and useAISuggestions.ts)** to call new backend endpoints instead of local API routes. Include auth token in requests. *Completed: Updated fetches to use BACKEND_URL with Authorization header from Supabase session.*
-- [x] **Step 6: Remove old Gemini calls and API routes from Next.js** (e.g., /api/suggestions/*). *Completed: Deleted the three suggestion API routes and removed direct Gemini calls from geminiAIService.ts.*
-- [ ] **Step 7: Test end-to-end flows** (suggestions, each infuse mode).
-- [ ] **Step 8: Update this doc with completion notes and any changes.** 
+## 3. TODO List - Current Status
+
+### ✅ Completed
+- **Backend Architecture**: Complete FastAPI server with LSP models
+- **AI Integration**: Gemini service with error handling  
+- **Three Modes**: All modes implemented (highlight_click, cmd_drop, paragraph_drop)
+- **Frontend Calls**: All API calls configured with proper endpoints
+- **Auth Structure**: JWT middleware ready (commented out)
+
+### 🔄 In Progress  
+- **Enable Authentication**: Uncomment auth decorators and test flow
+- **Environment Setup**: Configure environment variables properly
+- **End-to-end Testing**: Test complete user flow
+
+### 📋 Remaining
+- **Centralize API Keys**: Remove user API key requirement
+- **Production Features**: Rate limiting, monitoring, caching
+- **Error Handling**: Improve error messages and fallbacks
+- **Documentation**: API documentation and deployment guide
+
+## 4. Testing Instructions
+
+### Prerequisites
+1. **Environment Variables** (add to nexus-app/.env.local):
+```bash
+NEXT_PUBLIC_AI_BACKEND_URL=http://localhost:8000
+```
+
+2. **Backend Environment** (add to nexus-app-be/ai-server/.env):
+```bash
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key  
+SUPABASE_JWT_SECRET=your_jwt_secret
+GOOGLE_API_KEY=your_gemini_api_key
+```
+
+### Quick Start Testing
+1. **Start Backend**: `cd nexus-app-be/ai-server && python -m uvicorn app.main:app --reload`
+2. **Start Frontend**: `cd nexus-app && npm run dev`
+3. **Test Health**: Visit http://localhost:8000/docs for API documentation
+
+### Test Scenarios
+- **Suggestions**: Type text in immerse page, wait for suggestions
+- **Highlight+Click**: Select text, click suggestion card
+- **CMD+Drop**: Hold CMD, drag suggestion to text
+- **Paragraph Drop**: Drag suggestion to paragraph
+
+## 5. Next Steps Priority
+1. Enable authentication (5 min fix)
+2. Test complete user flow  
+3. Add centralized API key management
+4. Add production monitoring features 

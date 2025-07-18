@@ -3,3 +3,4 @@ node_modules/
 /nexus-app/.next
 /nexus-app-be/venv
 *.pyc
+/nexus-app-be/ai-server/venv

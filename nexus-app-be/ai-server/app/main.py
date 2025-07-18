@@ -64,12 +64,15 @@ async def health_check():
     }
 
 @app.get("/api/me")
-async def get_current_user_info(current_user: User = Depends(get_current_user)):
-    """Get current authenticated user info"""
+async def get_current_user_info(
+    # current_user: User = Depends(get_current_user)  # Disabled for local testing
+):
+    """Get current authenticated user info - disabled for local testing"""
     return {
-        "user_id": current_user.id,
-        "username": current_user.username,
-        "email": current_user.email
+        "user_id": "test-user",
+        "username": "test-user",
+        "email": "test@example.com",
+        "message": "Auth disabled for local testing"
     }
 
 if __name__ == "__main__":

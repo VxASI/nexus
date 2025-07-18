@@ -33,6 +33,9 @@ export default function ImmersePage() {
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
+  // Backend URL configuration
+  const BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8000';
+  
   // API Key management
   const [geminiApiKey, setGeminiApiKey] = useState<string>('');
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
@@ -68,12 +71,6 @@ export default function ImmersePage() {
   const handleCmdJSuggestions = useCallback(async () => {
     if (isLoadingSuggestions) return;
 
-    // Check if API key is needed
-    if (!geminiApiKey) {
-      setShowApiKeyModal(true);
-      return;
-    }
-
     setIsLoadingSuggestions(true);
     setError(null);
 
@@ -98,21 +95,17 @@ export default function ImmersePage() {
         }
       };
 
-      // Assume we have access to Supabase auth token (from useAuth or similar)
-      const { supabase } = useAuth();  // Adjust based on actual auth hook
-      const token = (await supabase.auth.getSession())?.data.session?.access_token;
-
+      // Auth disabled for local testing
       const response = await fetch(`${BACKEND_URL}/api/suggestions`, {
           method: 'POST',
           headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify({ full_text: content }),
       });
       if (!response.ok) throw new Error('Failed to fetch suggestions');
       const data = await response.json();
-      setEnhancedSuggestions(data.items.map((item, index) => ({
+      setEnhancedSuggestions(data.items.map((item: any, index: number) => ({
           id: `sugg-${index}`,
           text: item.insertText,
           type: 'enhance',  // Map from item.kind if needed
@@ -518,23 +511,18 @@ function ImmerseContent({
       console.log('Original content:', originalContent);
       console.log('Drop zone:', dropZone);
 
-      // Assume we have access to Supabase auth token (from useAuth or similar)
-      const { supabase } = useAuth();  // Adjust based on actual auth hook
-      const token = (await supabase.auth.getSession())?.data.session?.access_token;
-
+      // Auth disabled for local testing - simplified request
       const mergeResponse = await fetch(`${BACKEND_URL}/api/infuse`, {
           method: 'POST',
           headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify({
               full_text: fullText,
-              cursor_position: { line: line, character: char },
-              highlighted_range: isSelection ? { start: {line: startLine, character: startChar}, end: {line: endLine, character: endChar} } : null,
+              cursor_position: { line: 0, character: 0 }, // Simplified for testing
+              highlighted_range: null, // Simplified for testing
               suggestion_text: suggestion.text,
-              mode: dropZone.type === 'paragraph' ? 'paragraph_drop' : (isMetaPressed ? 'cmd_drop' : 'highlight_click'),
-              gemini_api_key: geminiApiKey,
+              mode: 'highlight_click', // Default mode for testing
           }),
       });
       const data = await mergeResponse.json();

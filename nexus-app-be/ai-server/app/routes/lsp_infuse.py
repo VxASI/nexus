@@ -376,7 +376,7 @@ class SuggestionsRequest(BaseModel):
 @router.post("/suggestions")
 async def get_suggestions(
     request: SuggestionsRequest,
-    current_user: Optional[User] = Depends(get_optional_user)
+    # current_user: Optional[User] = Depends(get_optional_user)  # Disabled for local testing
 ):
     """Generate AI suggestions for the full text"""
     try:
@@ -399,12 +399,11 @@ class InfuseRequest(BaseModel):
     highlighted_range: Optional[Range] = None
     suggestion_text: str
     mode: Literal['highlight_click', 'cmd_drop', 'paragraph_drop']
-    gemini_api_key: str
 
 @router.post("/infuse")
 async def infuse_text(
     request: InfuseRequest,
-    current_user: Optional[User] = Depends(get_optional_user)
+    # current_user: Optional[User] = Depends(get_optional_user)  # Disabled for local testing
 ):
     """Infuse AI rewrite based on mode"""
     try:
@@ -429,8 +428,7 @@ async def infuse_text(
         enhanced_text = await gemini_service.generate_text_enhancement(
             text=context_text,
             context=request.suggestion_text,
-            enhancement_type=prompt_type,
-            api_key=request.gemini_api_key
+            enhancement_type=prompt_type
         )
         
         workspace_edit = lsp_diff_service.create_code_action_edit(
