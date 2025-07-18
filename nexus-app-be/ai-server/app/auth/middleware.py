@@ -9,6 +9,8 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import os
 from typing import Optional
 import json
+import jwt
+from jose import jwt as jose_jwt
 
 from app.models.auth import User, TokenData
 
@@ -16,36 +18,37 @@ from app.models.auth import User, TokenData
 security = HTTPBearer()
 
 class SupabaseAuth:
-    """Simplified Supabase authentication handler"""
+    """Supabase authentication handler with proper JWT validation"""
     
     def __init__(self):
         self.supabase_url = os.getenv("NEXT_PUBLIC_SUPABASE_URL", "")
         self.supabase_anon_key = os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "")
-        
+        self.supabase_jwt_secret = os.getenv("SUPABASE_JWT_SECRET")  # Add this: Secret key for JWT verification
+        if not self.supabase_jwt_secret:
+            raise ValueError("SUPABASE_JWT_SECRET environment variable is required")
         print(f"🔐 Auth initialized with Supabase URL: {self.supabase_url[:30]}...")
     
     async def verify_token(self, token: str) -> TokenData:
-        """
-        Simplified token verification - for development only
-        In production, use proper JWT validation with python-jose
-        """
-        
-        # For now, just validate basic format and create mock token data
-        if not token or len(token) < 10:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token format"
+        """Verify JWT token using python-jose"""
+        try:
+            decoded = jose_jwt.decode(
+                token,
+                self.supabase_jwt_secret,
+                algorithms=["HS256"],  # Adjust algorithm as per Supabase (usually HS256)
+                audience="authenticated",  # Supabase default audience
+                issuer=self.supabase_url + "/auth/v1"
             )
-        
-        # TODO: Replace with proper JWT verification
-        # This is a mock implementation for development
-        return TokenData(
-            user_id="mock-user-123",
-            email="dev@example.com",
-            username="dev-user",
-            exp=0,
-            iat=0
-        )
+            return TokenData(
+                user_id=decoded.get("sub"),
+                email=decoded.get("email"),
+                username=decoded.get("username", decoded.get("email").split("@")[0]),
+                exp=decoded.get("exp"),
+                iat=decoded.get("iat")
+            )
+        except jose_jwt.ExpiredSignatureError:
+            raise HTTPException(status_code=401, detail="Token has expired")
+        except jose_jwt.JWTError as e:
+            raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
     
     async def get_user_profile(self, user_id: str) -> Optional[User]:
         """

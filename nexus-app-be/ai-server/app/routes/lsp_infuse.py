@@ -5,7 +5,7 @@ Provides professional-grade text editing following Language Server Protocol stan
 
 from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi.responses import StreamingResponse
-from typing import Optional, List
+from typing import Optional, List, Literal
 import json
 import time
 import asyncio
@@ -369,3 +369,78 @@ def _generate_related_code_actions(
     ))
     
     return actions 
+
+class SuggestionsRequest(BaseModel):
+    full_text: str
+
+@router.post("/suggestions")
+async def get_suggestions(
+    request: SuggestionsRequest,
+    current_user: Optional[User] = Depends(get_optional_user)
+):
+    """Generate AI suggestions for the full text"""
+    try:
+        enhanced_suggestions = await gemini_service.generate_suggestions(request.full_text)
+        completions = [
+            CompletionItem(
+                label=suggestion,
+                kind=CompletionItemKind.Text,
+                detail="AI-generated suggestion",
+                insertText=suggestion
+            ) for suggestion in enhanced_suggestions
+        ]
+        return {"items": completions}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate suggestions: {str(e)}") 
+
+class InfuseRequest(BaseModel):
+    full_text: str
+    cursor_position: Position
+    highlighted_range: Optional[Range] = None
+    suggestion_text: str
+    mode: Literal['highlight_click', 'cmd_drop', 'paragraph_drop']
+    gemini_api_key: str
+
+@router.post("/infuse")
+async def infuse_text(
+    request: InfuseRequest,
+    current_user: Optional[User] = Depends(get_optional_user)
+):
+    """Infuse AI rewrite based on mode"""
+    try:
+        # Determine target range and prompt based on mode
+        if request.mode == 'highlight_click':
+            target_range = request.highlighted_range or Range(start=request.cursor_position, end=request.cursor_position)
+            context_text = request.full_text[target_range.start.character:target_range.end.character]  # Simplified extraction
+            prompt_type = 'rewrite_highlighted'
+        elif request.mode == 'cmd_drop':
+            target_range = Range(start=Position(line=0, character=0), end=Position(line=len(request.full_text.split('\n'))-1, character=len(request.full_text)))
+            context_text = request.full_text
+            prompt_type = 'infuse_full'
+        else:  # paragraph_drop
+            # Simplified paragraph detection
+            lines = request.full_text.split('\n')
+            para_start = max(0, request.cursor_position.line - 1)
+            para_end = min(len(lines)-1, request.cursor_position.line + 1)
+            context_text = '\n'.join(lines[para_start:para_end+1])
+            target_range = Range(start=Position(line=para_start, character=0), end=Position(line=para_end, character=len(lines[para_end])))
+            prompt_type = 'rewrite_paragraph'
+        
+        enhanced_text = await gemini_service.generate_text_enhancement(
+            text=context_text,
+            context=request.suggestion_text,
+            enhancement_type=prompt_type,
+            api_key=request.gemini_api_key
+        )
+        
+        workspace_edit = lsp_diff_service.create_code_action_edit(
+            suggestion_text=enhanced_text,
+            target_range=target_range,
+            document_uri="virtual://immerse",  # Placeholder
+            action_type="refactor.rewrite",
+            suggestion_id=f"infuse-{int(time.time())}"
+        )
+        
+        return LSPInfuseResponse(edit=workspace_edit)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Infuse failed: {str(e)}") 

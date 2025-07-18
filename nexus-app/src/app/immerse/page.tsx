@@ -24,6 +24,7 @@ import { EnhancedContentPreview } from './components/EnhancedContentPreview';
 
 // BiometricTracker import
 import { BiometricTracker } from './components/BiometricTracker';
+import { useAuth } from '@/hooks/useAuth'; // Added import for useAuth
 
 export default function ImmersePage() {
   const [content, setContent] = useState('');
@@ -97,10 +98,26 @@ export default function ImmersePage() {
         }
       };
 
-      const suggestions = await aiServiceRef.current.generateSuggestions(editorContext);
-      setEnhancedSuggestions(suggestions);
-      
-      // Show suggestions panel if hidden
+      // Assume we have access to Supabase auth token (from useAuth or similar)
+      const { supabase } = useAuth();  // Adjust based on actual auth hook
+      const token = (await supabase.auth.getSession())?.data.session?.access_token;
+
+      const response = await fetch(`${BACKEND_URL}/api/suggestions`, {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ full_text: content }),
+      });
+      if (!response.ok) throw new Error('Failed to fetch suggestions');
+      const data = await response.json();
+      setEnhancedSuggestions(data.items.map((item, index) => ({
+          id: `sugg-${index}`,
+          text: item.insertText,
+          type: 'enhance',  // Map from item.kind if needed
+          confidence: 0.8,
+      })));
       setShowSuggestions(true);
       
     } catch (err) {
@@ -501,17 +518,27 @@ function ImmerseContent({
       console.log('Original content:', originalContent);
       console.log('Drop zone:', dropZone);
 
-      // Generate intelligent merge using AI service
-      const mergeRequest: ContentMergeRequest = {
-        originalText: originalContent,
-        suggestion,
-        dropZone,
-        userPreferences
-      };
+      // Assume we have access to Supabase auth token (from useAuth or similar)
+      const { supabase } = useAuth();  // Adjust based on actual auth hook
+      const token = (await supabase.auth.getSession())?.data.session?.access_token;
 
-      console.log('Calling AI service for merge...');
-      const mergeResponse = await aiService.mergeContent(mergeRequest);
-      console.log('Merge response:', mergeResponse);
+      const mergeResponse = await fetch(`${BACKEND_URL}/api/infuse`, {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+              full_text: fullText,
+              cursor_position: { line: line, character: char },
+              highlighted_range: isSelection ? { start: {line: startLine, character: startChar}, end: {line: endLine, character: endChar} } : null,
+              suggestion_text: suggestion.text,
+              mode: dropZone.type === 'paragraph' ? 'paragraph_drop' : (isMetaPressed ? 'cmd_drop' : 'highlight_click'),
+              gemini_api_key: geminiApiKey,
+          }),
+      });
+      const data = await mergeResponse.json();
+      // Apply the WorkspaceEdit from data.edit
 
       // Show content preview modal with diff
       setContentPreview({
@@ -774,20 +801,27 @@ function ImmerseContent({
         suggestedAction: 'merge'
       };
 
-      // Generate intelligent merge using AI service
-      const mergeRequest: ContentMergeRequest = {
-        originalText: contextualData.fullContext,
-        suggestion,
-        dropZone,
-        userPreferences: {
-          writingStyle: 'conversational',
-          preferredEditTypes: [suggestion.type],
-          boldnessLevel: 'moderate',
-          voicePreservation: 0.8
-        }
-      };
+      // Assume we have access to Supabase auth token (from useAuth or similar)
+      const { supabase } = useAuth();  // Adjust based on actual auth hook
+      const token = (await supabase.auth.getSession())?.data.session?.access_token;
 
-      const mergeResponse = await aiService.mergeContent(mergeRequest);
+      const mergeResponse = await fetch(`${BACKEND_URL}/api/infuse`, {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+              full_text: contextualData.fullContext,
+              cursor_position: { line, char },
+              highlighted_range: null,
+              suggestion_text: suggestion.text,
+              mode: 'highlight_click',
+              gemini_api_key: geminiApiKey,
+          }),
+      });
+
+      const data = await mergeResponse.json();
 
       // Apply the rewritten content
       // Find the paragraph boundaries for the target paragraph
@@ -827,7 +861,7 @@ function ImmerseContent({
       editor.chain()
         .focus()
         .deleteRange({ from: blockStart, to: blockEnd })
-        .insertContent(mergeResponse.mergedText)
+        .insertContent(data.merged_text)
         .run();
 
       // Show notification

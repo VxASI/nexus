@@ -4,7 +4,7 @@ Minimal version focused on LSP text processing capabilities
 """
 
 import google.generativeai as genai
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import asyncio
 
 class GeminiAIService:
@@ -50,6 +50,20 @@ class GeminiAIService:
         except Exception as e:
             # Return original text as fallback
             return text
+    
+    async def generate_suggestions(
+        self,
+        full_text: str,
+        num_suggestions: int = 4
+    ) -> List[str]:
+        """Generate multiple suggestions for full text"""
+        prompt = f"Generate {num_suggestions} concise suggestions to enhance this journal entry: {full_text[:2000]}\n\nReturn each suggestion on a new line."
+        try:
+            response = await self._call_gemini_api(prompt)
+            suggestions = [s.strip() for s in response.split('\n') if s.strip()][:num_suggestions]
+            return suggestions or ["No suggestions generated."]
+        except Exception:
+            return ["Error generating suggestions."]
     
     def _build_enhancement_prompt(
         self, 
