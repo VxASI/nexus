@@ -1,0 +1,22 @@
+# Core FastAPI dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# Text diffing library (our key enhancement)
+diff-match-patch==20230430
+
+# Environment variables and basic utilities
+python-dotenv==1.0.0
+pydantic==2.5.0
+
+# Basic HTTP client
+httpx>=0.24.0,<0.25.0
+
+# Supabase authentication
+supabase==2.3.0
+
+# Google AI (Gemini)
+google-generativeai==0.3.2
+
+# Streaming support
+sse-starlette==1.6.5 
