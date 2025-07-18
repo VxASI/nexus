@@ -7,8 +7,7 @@ export function useAISuggestions(content: string) {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8000';
-  // Assume supabase from auth context
-  import { useAuth } from '../hooks/useAuth';  // Adjust as needed
+  import { useAuth } from './useAuth';  // Corrected path assuming it's in same dir or adjust
 
   useEffect(() => {
     if (!content.trim()) {
@@ -35,7 +34,7 @@ export function useAISuggestions(content: string) {
             });
             if (!response.ok) throw new Error('Failed to generate suggestions');
             const data = await response.json();
-            setSuggestions(data.items.map(item => item.insertText));
+            setSuggestions(data.items.map((item: {insertText: string}) => item.insertText));
         } catch (err) {
             setError('Failed to generate suggestions');
             setSuggestions([]);
