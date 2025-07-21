@@ -425,6 +425,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     userData?: { name?: string; username?: string }
   ) => {
     try {
+      // First, check if user has a valid invite
+      const { data: hasInvite, error: inviteCheckError } = await supabase
+        .rpc('has_valid_invite', { email_param: email });
+
+      if (inviteCheckError) {
+        console.error('Error checking invite:', inviteCheckError);
+        return { success: false, error: 'Failed to verify invite status' };
+      }
+
+      if (!hasInvite) {
+        return { 
+          success: false, 
+          error: 'This email address is not invited to join. Please contact an existing member for an invite.' 
+        };
+      }
+
+      // Proceed with Supabase signup
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -435,6 +452,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) {
         return { success: false, error: error.message };
+      }
+
+      // If signup successful, atomically consume the invite
+      if (data.user) {
+        const { data: inviteResult, error: inviteError } = await supabase
+          .rpc('use_invite_atomic', { 
+            email_param: email,
+            user_id_param: data.user.id
+          });
+
+        if (inviteError) {
+          console.error('Error consuming invite:', inviteError);
+          // Non-critical - user account created but invite not marked as used
+        } else {
+          const inviteData = inviteResult?.[0];
+          if (!inviteData?.success) {
+            console.warn('Signup succeeded but failed to consume invite:', inviteData?.message);
+            // This could happen if invite was used by another concurrent signup
+            // User account is still valid
+          }
+        }
       }
 
       if (data.user && !data.user.email_confirmed_at) {

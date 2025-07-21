@@ -253,7 +253,7 @@ export default function AuthPanel({ onAuthSuccess, onLogin, onSignup }: AuthPane
             {authMode === 'reset' 
               ? 'Enter your email address and we\'ll send you a password reset link if your account exists'
               : authMode === 'signup'
-              ? 'Create your account to join the collective intelligence'
+              ? 'Join by invitation only - enter your invited email to continue'
               : 'Sign in to continue your journey'
             }
           </p>
