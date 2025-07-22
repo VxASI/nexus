@@ -56,12 +56,8 @@ export default function AuthPanel({ onAuthSuccess, onLogin, onSignup }: AuthPane
   }, [searchParams]);
 
   const safeSetState = (stateSetter: () => void) => {
-    console.log('🔧 safeSetState called, mounted:', isMountedRef.current);
     if (isMountedRef.current) {
       stateSetter();
-      console.log('✅ State setter executed');
-    } else {
-      console.log('❌ State setter skipped - component unmounted');
     }
   };
 
@@ -193,28 +189,21 @@ export default function AuthPanel({ onAuthSuccess, onLogin, onSignup }: AuthPane
           return;
         }
 
-        console.log('🚀 Attempting signup with email:', formData.email);
         const result = await signUp(formData.email, formData.password, {
           name: formData.name,
           username: formData.username
         });
         
-        console.log('📝 Signup result:', result);
-        console.log('🔍 Component mounted?', isMountedRef.current);
-        
         // Always clear loading state, even if component is unmounted
         setIsLoading(false);
         
         if (!isMountedRef.current) {
-          console.log('⚠️ Component unmounted, but loading state cleared');
           // Still try to set error for better UX
           if (!result.success) {
             setError(result.error || 'Signup failed');
           }
           return;
         }
-        
-        console.log('🎯 Checking result.success:', result.success);
         if (result.success) {
           if (result.needsVerification) {
             safeSetState(() => {
@@ -232,8 +221,6 @@ export default function AuthPanel({ onAuthSuccess, onLogin, onSignup }: AuthPane
             if (onSignup) onSignup();
           }
         } else {
-          console.log('❌ Signup failed with error:', result.error);
-          console.log('🔄 Setting error state and clearing loading...');
           safeSetState(() => {
             setError(result.error || 'Signup failed');
             setIsLoading(false);
@@ -242,7 +229,6 @@ export default function AuthPanel({ onAuthSuccess, onLogin, onSignup }: AuthPane
           // Fallback: ensure loading is cleared even if safeSetState fails
           setTimeout(() => {
             if (isMountedRef.current) {
-              console.log('🔄 Fallback: clearing loading state');
               setIsLoading(false);
             }
           }, 100);
@@ -267,7 +253,6 @@ export default function AuthPanel({ onAuthSuccess, onLogin, onSignup }: AuthPane
       // Fallback: ensure loading is cleared even if safeSetState fails
       setTimeout(() => {
         if (isMountedRef.current) {
-          console.log('🔄 Catch fallback: clearing loading state');
           setIsLoading(false);
         }
       }, 100);
