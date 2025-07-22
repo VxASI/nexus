@@ -55,9 +55,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get sent invites list - DEBUG VERSION
-    console.log('🔍 DEBUG: Fetching invites for user:', user.id);
-    
+    // Get sent invites list
     const { data: invites, error: invitesError } = await supabase
       .from('user_invites')
       .select(`
@@ -76,8 +74,6 @@ export async function GET(request: NextRequest) {
       .eq('inviter_user_id', user.id)
       .order('created_at', { ascending: false });
 
-    console.log('🔍 DEBUG: Raw invites query result:', { invites, invitesError });
-
     if (invitesError) {
       console.error('Error getting sent invites:', invitesError);
       return NextResponse.json(
@@ -86,24 +82,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Transform the data to match expected interface - DEBUG VERSION
-    console.log('🔍 DEBUG: Transforming invites data...');
-    const transformedInvites = (invites || []).map((item: any) => {
-      console.log('🔍 DEBUG: Processing invite item:', item);
-      return {
-        id: item.id,
-        email: item.email,
-        created_at: item.created_at,
-        cancelled_at: item.cancelled_at,
-        invites: item.invites || { 
-          id: item.invite_id, 
-          used_at: null, 
-          used_by_user_id: null 
-        }
-      };
-    });
-
-    console.log('🔍 DEBUG: Transformed invites:', transformedInvites);
+    // Transform the data to match expected interface
+    const transformedInvites = (invites || []).map((item: any) => ({
+      id: item.id,
+      email: item.email,
+      created_at: item.created_at,
+      cancelled_at: item.cancelled_at,
+      invites: item.invites || { 
+        id: item.invite_id, 
+        used_at: null, 
+        used_by_user_id: null 
+      }
+    }));
 
     return NextResponse.json({
       success: true,
