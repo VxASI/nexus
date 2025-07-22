@@ -1,4 +1,25 @@
-// Removed supabase import - now using API routes instead of direct DB calls
+import { supabase } from '@/lib/supabase';
+
+// Helper to attach the current user's access token (if any) so that
+// server-side route handlers using `createRouteHandlerClient` can
+// properly identify the user.  When the session is missing we fall
+// back to the existing unauthenticated behaviour which will trigger
+// a 401 from the API – the caller already handles that error.
+async function buildAuthHeaders(): Promise<HeadersInit> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+
+  if (session?.access_token) {
+    headers['Authorization'] = `Bearer ${session.access_token}`;
+  }
+
+  return headers;
+}
 
 export interface InviteStats {
   invite_limit: number;
@@ -48,9 +69,8 @@ export class InviteService {
   async getUserInviteStats(userId: string): Promise<InviteStats> {
     const response = await fetch('/api/invites/dashboard', {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: await buildAuthHeaders(),
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -73,9 +93,8 @@ export class InviteService {
   async getSentInvites(userId: string): Promise<SentInvite[]> {
     const response = await fetch('/api/invites/dashboard', {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: await buildAuthHeaders(),
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -92,9 +111,8 @@ export class InviteService {
   async sendInvite(userId: string, email: string): Promise<{ success: boolean; message: string }> {
     const response = await fetch('/api/invites/send', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: await buildAuthHeaders(),
+      credentials: 'include',
       body: JSON.stringify({ email }),
     });
 
@@ -115,9 +133,8 @@ export class InviteService {
   async cancelInvite(userId: string, inviteId: string): Promise<{ success: boolean; message: string }> {
     const response = await fetch(`/api/invites/cancel/${inviteId}`, {
       method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: await buildAuthHeaders(),
+      credentials: 'include',
     });
 
     if (!response.ok) {

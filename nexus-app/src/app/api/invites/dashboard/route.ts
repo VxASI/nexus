@@ -4,15 +4,43 @@ import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
-    
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    let supabase = createRouteHandlerClient({ cookies });
+
+    // ---------------------------------------------------------------------
+    // AUTHENTICATION
+    // ---------------------------------------------------------------------
+    // 1. Attempt cookie-based auth (standard for `@supabase/auth-helpers`)
+    let {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    // 2. If that failed, fall back to the bearer token passed from the
+    //    browser.  This covers the case where the client stores the session
+    //    in localStorage and explicitly forwards the access token via the
+    //    `Authorization` header.
+    if ((!user || authError) && request.headers.has('authorization')) {
+      const token = request.headers.get('authorization')!.replace('Bearer ', '');
+      // Fall back: create a fresh client that authenticates via the bearer
+      // token in the request header.  We can’t call `supabase.auth.setAuth`
+      // because that helper was removed in supabase-js v2.
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
+
+      supabase = createClient(supabaseUrl, supabaseAnonKey, {
+        global: {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      });
+
+      const res = await supabase.auth.getUser();
+      user = res.data.user;
+      authError = res.error;
+    }
+
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Authentication required' }, 
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
     // Get user invite statistics
