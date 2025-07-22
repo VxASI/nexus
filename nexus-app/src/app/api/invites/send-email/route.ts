@@ -5,6 +5,12 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: NextRequest) {
   try {
+    // Validate Resend API key is configured
+    if (!process.env.RESEND_API_KEY) {
+      console.error('RESEND_API_KEY environment variable not configured');
+      return NextResponse.json({ error: 'Email service not configured' }, { status: 500 });
+    }
+
     const { email, inviterName, inviterUsername } = await request.json();
     
     if (!email || !inviterName || !inviterUsername) {
@@ -28,7 +34,7 @@ async function sendInviteEmail(email: string, inviterName: string, inviterUserna
   const signupUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}?email=${encodeURIComponent(email)}`;
   
   await resend.emails.send({
-    from: 'NEXUS <noreply@yourdomain.com>', // Update with your domain
+    from: `NEXUS <${process.env.RESEND_FROM_EMAIL || 'noreply@yourdomain.com'}>`,
     to: email,
     subject: `${inviterName} invited you to join NEXUS`,
     html: `
