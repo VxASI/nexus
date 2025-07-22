@@ -64,6 +64,17 @@ export async function POST(request: NextRequest) {
 
     if (inviteError) {
       console.error('Database error sending invite:', inviteError);
+      
+      // Handle specific database constraint violations
+      if (inviteError.code === '23505') {
+        if (inviteError.message?.includes('user_invites_inviter_user_id_email_key')) {
+          return NextResponse.json(
+            { error: 'You have already invited this email address' }, 
+            { status: 400 }
+          );
+        }
+      }
+      
       return NextResponse.json(
         { error: 'Failed to send invite' }, 
         { status: 500 }
@@ -73,8 +84,30 @@ export async function POST(request: NextRequest) {
     const inviteResult = result?.[0];
     
     if (!inviteResult?.success) {
+      // Map database function messages to user-friendly ones
+      const dbMessage = inviteResult?.message || 'Failed to send invite';
+      let userMessage = dbMessage;
+      
+      switch (dbMessage) {
+        case 'User already exists':
+          userMessage = 'This email address already has an account';
+          break;
+        case 'Already invited this email':
+          userMessage = 'You have already sent an invite to this email address';
+          break;
+        case 'Invite limit reached':
+          userMessage = 'You have reached your invite limit';
+          break;
+        case 'Invalid email format':
+          userMessage = 'Please enter a valid email address';
+          break;
+        case 'User not found':
+          userMessage = 'Authentication error - please try logging in again';
+          break;
+      }
+      
       return NextResponse.json(
-        { error: inviteResult?.message || 'Failed to send invite' }, 
+        { error: userMessage }, 
         { status: 400 }
       );
     }
@@ -118,7 +151,7 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({
       success: true,
-      message: 'Invite sent successfully',
+      message: inviteResult.message || 'Invite sent successfully', // Use the database message (includes "resent" case)
       inviteId: inviteResult.invite_id
     });
 
