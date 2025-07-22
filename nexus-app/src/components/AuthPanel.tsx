@@ -56,8 +56,12 @@ export default function AuthPanel({ onAuthSuccess, onLogin, onSignup }: AuthPane
   }, [searchParams]);
 
   const safeSetState = (stateSetter: () => void) => {
+    console.log('🔧 safeSetState called, mounted:', isMountedRef.current);
     if (isMountedRef.current) {
       stateSetter();
+      console.log('✅ State setter executed');
+    } else {
+      console.log('❌ State setter skipped - component unmounted');
     }
   };
 
@@ -119,14 +123,18 @@ export default function AuthPanel({ onAuthSuccess, onLogin, onSignup }: AuthPane
       if (authMode === 'login') {
         // Validation for login
         if (!formData.username) {
-          setError('Please enter your username or email');
-          setIsLoading(false);
+          safeSetState(() => {
+            setError('Please enter your username or email');
+            setIsLoading(false);
+          });
           return;
         }
 
         if (!formData.password) {
-          setError('Please enter your password');
-          setIsLoading(false);
+          safeSetState(() => {
+            setError('Please enter your password');
+            setIsLoading(false);
+          });
           return;
         }
 
@@ -135,6 +143,7 @@ export default function AuthPanel({ onAuthSuccess, onLogin, onSignup }: AuthPane
         if (!isMountedRef.current) return;
         
         if (result.success) {
+          safeSetState(() => setIsLoading(false));
           try {
             await onAuthSuccess();
           } catch (error) {
@@ -142,51 +151,79 @@ export default function AuthPanel({ onAuthSuccess, onLogin, onSignup }: AuthPane
           }
           if (onLogin) onLogin();
         } else {
-          safeSetState(() => setError(result.error || 'Login failed'));
+          safeSetState(() => {
+            setError(result.error || 'Login failed');
+            setIsLoading(false);
+          });
         }
         
       } else if (authMode === 'signup') {
         // Validation for signup
         if (!formData.username || !formData.email || !formData.name || 
             !formData.password || !formData.confirmPassword) {
-          setError('Please fill in all fields');
-          setIsLoading(false);
+          safeSetState(() => {
+            setError('Please fill in all fields');
+            setIsLoading(false);
+          });
           return;
         }
 
         if (!validateEmail(formData.email)) {
-          setError('Please enter a valid email address');
-          setIsLoading(false);
+          safeSetState(() => {
+            setError('Please enter a valid email address');
+            setIsLoading(false);
+          });
           return;
         }
 
         const passwordValidation = validatePassword(formData.password);
         if (!passwordValidation.isValid) {
-          setError(`Password must have: ${passwordValidation.errors.join(', ')}`);
-          setIsLoading(false);
+          safeSetState(() => {
+            setError(`Password must have: ${passwordValidation.errors.join(', ')}`);
+            setIsLoading(false);
+          });
           return;
         }
 
         if (formData.password !== formData.confirmPassword) {
-          setError('Passwords do not match');
-          setIsLoading(false);
+          safeSetState(() => {
+            setError('Passwords do not match');
+            setIsLoading(false);
+          });
           return;
         }
 
+        console.log('🚀 Attempting signup with email:', formData.email);
         const result = await signUp(formData.email, formData.password, {
           name: formData.name,
           username: formData.username
         });
         
-        if (!isMountedRef.current) return;
+        console.log('📝 Signup result:', result);
+        console.log('🔍 Component mounted?', isMountedRef.current);
         
+        // Always clear loading state, even if component is unmounted
+        setIsLoading(false);
+        
+        if (!isMountedRef.current) {
+          console.log('⚠️ Component unmounted, but loading state cleared');
+          // Still try to set error for better UX
+          if (!result.success) {
+            setError(result.error || 'Signup failed');
+          }
+          return;
+        }
+        
+        console.log('🎯 Checking result.success:', result.success);
         if (result.success) {
           if (result.needsVerification) {
             safeSetState(() => {
               setSuccessMessage('Account created! Please check your email and click the verification link to complete your signup.');
               setAuthMode('login');
+              setIsLoading(false);
             });
           } else {
+            safeSetState(() => setIsLoading(false));
             try {
               await onAuthSuccess();
             } catch (error) {
@@ -195,20 +232,45 @@ export default function AuthPanel({ onAuthSuccess, onLogin, onSignup }: AuthPane
             if (onSignup) onSignup();
           }
         } else {
-          safeSetState(() => setError(result.error || 'Signup failed'));
+          console.log('❌ Signup failed with error:', result.error);
+          console.log('🔄 Setting error state and clearing loading...');
+          safeSetState(() => {
+            setError(result.error || 'Signup failed');
+            setIsLoading(false);
+          });
+          
+          // Fallback: ensure loading is cleared even if safeSetState fails
+          setTimeout(() => {
+            if (isMountedRef.current) {
+              console.log('🔄 Fallback: clearing loading state');
+              setIsLoading(false);
+            }
+          }, 100);
         }
       } else if (authMode === 'reset') {
         // Reset password functionality would go here
-        safeSetState(() => setError('Password reset not yet implemented'));
+        safeSetState(() => {
+          setError('Password reset not yet implemented');
+          setIsLoading(false);
+        });
       }
     } catch (err) {
       console.error('Auth error:', err);
       if (!isMountedRef.current) return;
       
       const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
-      safeSetState(() => setError(errorMessage));
-    } finally {
-      setIsLoading(false);
+      safeSetState(() => {
+        setError(errorMessage);
+        setIsLoading(false);
+      });
+      
+      // Fallback: ensure loading is cleared even if safeSetState fails
+      setTimeout(() => {
+        if (isMountedRef.current) {
+          console.log('🔄 Catch fallback: clearing loading state');
+          setIsLoading(false);
+        }
+      }, 100);
     }
   };
 
