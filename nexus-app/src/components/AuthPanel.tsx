@@ -35,10 +35,22 @@ export default function AuthPanel({ onAuthSuccess, onLogin, onSignup }: AuthPane
     };
   }, []);
 
-  // Handle URL parameters for auth mode and success messages
+  // Handle URL parameters for auth mode, email pre-filling, and success messages
   React.useEffect(() => {
     const tab = searchParams.get('tab');
     const message = searchParams.get('message');
+    const emailParam = searchParams.get('email');
+    
+    // If email parameter is present, switch to signup mode and pre-fill email
+    if (emailParam) {
+      setAuthMode('signup');
+      setFormData(prev => ({ ...prev, email: emailParam }));
+      
+      // Clean up URL parameters after pre-filling
+      const url = new URL(window.location.href);
+      url.searchParams.delete('email');
+      window.history.replaceState({}, '', url.toString());
+    }
     
     if (tab === 'signin') {
       setAuthMode('login');
