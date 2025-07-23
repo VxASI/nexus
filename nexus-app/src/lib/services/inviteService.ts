@@ -23,7 +23,6 @@ async function buildAuthHeaders(): Promise<HeadersInit> {
 
 export interface InviteStats {
   invite_limit: number;
-  invites_used: number;
   invites_available: number;
   pending_invites: number;
   successful_signups: number;
@@ -83,7 +82,6 @@ export class InviteService {
     
     return result.data?.stats || {
       invite_limit: 0,
-      invites_used: 0,
       invites_available: 0,
       pending_invites: 0,
       successful_signups: 0

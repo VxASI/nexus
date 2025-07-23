@@ -153,16 +153,11 @@ export default function InvitesPage() {
 
             {/* Stats Cards */}
             {stats && (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                 <StatCard 
                   title="Available" 
                   value={stats.invites_available}
                   color="emerald" 
-                />
-                <StatCard 
-                  title="Sent" 
-                  value={stats.invites_used}
-                  color="blue" 
                 />
                 <StatCard 
                   title="Pending" 

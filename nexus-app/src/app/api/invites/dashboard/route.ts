@@ -100,7 +100,6 @@ export async function GET(request: NextRequest) {
       data: {
         stats: stats?.[0] || {
           invite_limit: 0,
-          invites_used: 0,
           invites_available: 0,
           pending_invites: 0,
           successful_signups: 0
