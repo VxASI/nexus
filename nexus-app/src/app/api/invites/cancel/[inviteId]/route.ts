@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
 interface RouteContext {
-  params: {
+  params: Promise<{
     inviteId: string;
-  };
+  }>;
 }
 
 export async function DELETE(
@@ -13,7 +13,24 @@ export async function DELETE(
   { params }: RouteContext
 ) {
   try {
-    let supabase = createRouteHandlerClient({ cookies });
+    const cookieStore = await cookies();
+    
+    let supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            );
+          },
+        },
+      }
+    );
 
     // ---------------------------------------------------------------------
     // AUTHENTICATION
@@ -45,7 +62,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const { inviteId } = params;
+    const { inviteId } = await params;
     
     if (!inviteId) {
       return NextResponse.json(
